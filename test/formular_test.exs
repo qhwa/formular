@@ -46,4 +46,30 @@ defmodule FormularTest do
 
     assert eval(f, [], context: TestContext) == {:ok, 10}
   end
+
+  test "complex formula" do
+    f = """
+      (
+        reward_base + (lines * reward_per_line) + (distance * reward_per_km)
+      )
+      |> no_more_than(max_reward)
+    """
+
+    assert {
+             :ok,
+             [
+               :no_more_than,
+               [
+                 :+,
+                 [
+                   :+,
+                   :reward_base,
+                   [:*, :lines, :reward_per_line]
+                 ],
+                 [:*, :distance, :reward_per_km]
+               ],
+               :max_reward
+             ]
+           } == Formular.parse(f)
+  end
 end

@@ -42,8 +42,9 @@ defmodule Formular do
   defp transform({:{}, [_ | _], args}),
     do: args |> List.to_tuple()
 
-  defp transform({:|>, _, [first_arg, {f, _, rest_args}]}) do
-    [f, first_arg | rest_args]
+  defp transform({:|>, _, [first_arg, next]}) do
+    [f | rest_args] = transform(next)
+    [f, transform(first_arg) | rest_args]
   end
 
   defp transform({fun, _, nil}),
