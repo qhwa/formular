@@ -1,20 +1,8 @@
-defmodule TestContext do
-  def foo() do
-    42
-  end
-
-  def my_div(a, b) do
-    div(a, b)
-  end
-
-  def no_more_than(a, b) do
-    min(a, b)
-  end
-end
-
 defmodule FormularTest do
   use ExUnit.Case
   doctest Formular
+
+  alias Formular.TestContext
 
   defdelegate eval(code, binding, opts \\ []), to: Formular
 
@@ -32,10 +20,6 @@ defmodule FormularTest do
   test "with custom context" do
     assert eval("1 + foo", [], context: TestContext) == {:ok, 43}
     assert eval("1 + my_div(foo, 2)", [], context: TestContext) == {:ok, 22}
-  end
-
-  test "with pipe" do
-    assert eval("100 |> no_more_than(10)", [], context: TestContext) == {:ok, 10}
   end
 
   test "multiple lines" do

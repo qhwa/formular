@@ -146,6 +146,7 @@ defmodule Formular do
 
       :error ->
         context = opts[:context]
+        Code.ensure_loaded(context)
 
         cond do
           function_exported?(context, fun, arity) ->
