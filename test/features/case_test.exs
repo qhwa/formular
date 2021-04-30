@@ -1,11 +1,11 @@
-defmodule WithTest do
+defmodule CaseTest do
   use ExUnit.Case
 
   defdelegate eval(code, binding, opts \\ []), to: Formular
 
-  test "with `with`" do
+  test "with `case`" do
     code = """
-      with params do
+      case params do
         %{user_name: "Alex"} ->
           "Hello, Alex!"
 
@@ -14,6 +14,7 @@ defmodule WithTest do
       end
     """
 
-    assert eval(code, params: nil) == "Hello!"
+    assert eval(code, params: nil) == {:ok, "Hello!"}
+    assert eval(code, params: %{user_name: "Alex"}) == {:ok, "Hello, Alex!"}
   end
 end
