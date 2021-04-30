@@ -3,57 +3,65 @@ defmodule Formular do
   A formular parser
   """
 
-  @kernel_ops ~w[+ - * / min max]a
+  @kernel_functions [
+    {:!=, 2},
+    {:!==, 2},
+    {:+, 1},
+    {:+, 2},
+    {:-, 1},
+    {:-, 2},
+    {:*, 2},
+    {:/, 2},
+    {:|>, 2},
+    {:>, 2},
+    {:<, 2},
+    {:>=, 2},
+    {:<=, 2},
+    {:==, 2},
+    {:abs, 1},
+    {:and, 2},
+    {:ceil, 1},
+    {:div, 2},
+    {:floor, 1},
+    {:hd, 1},
+    {:in, 2},
+    {:length, 1},
+    {:map_size, 1},
+    {:not, 1},
+    {:or, 2},
+    {:rem, 2},
+    {:round, 1},
+    {:tl, 1},
+    {:trunc, 1},
+    {:tuple_size, 1},
+    {:!, 1},
+    {:&&, 2},
+    {:++, 2},
+    {:--, 2},
+    {:<>, 2},
+    {:=~, 2},
+    {:||, 2},
+    get_in: 2,
+    if: 2,
+    max: 2,
+    min: 2,
+    unless: 2,
+    sigil_C: 2,
+    sigil_D: 2,
+    sigil_N: 2,
+    sigil_R: 2,
+    sigil_S: 2,
+    sigil_T: 2,
+    sigil_U: 2,
+    sigil_W: 2,
+    sigil_c: 2,
+    sigil_r: 2,
+    sigil_s: 2,
+    sigil_w: 2,
+    to_string: 1
+  ]
+
   @default_eval_options [context: nil]
-
-  @doc """
-  Parse a text expression into an Elixir expression.
-
-  ## Examples
-
-      iex> Formular.parse("100")
-      {:ok, 100}
-
-      iex> Formular.parse("var")
-      {:ok, :var}
-
-      iex> Formular.parse("1 + 2")
-      {:ok, [:+, 1, 2]}
-
-      iex> Formular.parse("1 + foo")
-      {:ok, [:+, 1, :foo]}
-
-      iex> Formular.parse("(1 + 2) * 5")
-      {:ok, [:*, [:+, 1, 2], 5]}
-
-      iex> Formular.parse("lines * 50 + delivery_km * 2")
-      {:ok, [:+, [:*, :lines, 50], [:*, :delivery_km, 2]]}
-
-      iex> Formular.parse("min(lines, 10) * 50 + delivery_km * 2")
-      {:ok, [:+, [:*, [:min, :lines, 10], 50], [:*, :delivery_km, 2]]}
-
-  """
-  def parse(text) do
-    with {:ok, parsed} <- Code.string_to_quoted(text) do
-      {:ok, transform(parsed)}
-    end
-  end
-
-  defp transform({:{}, [_ | _], args}),
-    do: args |> List.to_tuple()
-
-  defp transform({:|>, _, [first_arg, next]}) do
-    [f | rest_args] = transform(next)
-    [f, transform(first_arg) | rest_args]
-  end
-
-  defp transform({fun, _, nil}),
-    do: fun
-
-  defp transform({op, [_ | _], args}) when is_list(args),
-    do: [op | Enum.map(args, &transform/1)]
-
-  defp transform(x), do: x
 
   @doc """
   Evaluate the expression with binding context.
@@ -67,12 +75,6 @@ defmodule Formular do
   iex> Formular.eval(~s["some text"], [])
   {:ok, "some text"}
 
-  iex> Formular.eval("1 + foo", [foo: fn -> 42 end])
-  {:ok, 43}
-
-  iex> Formular.eval("1 + add(-1, 5)", [add: &(&1 + &2)])
-  {:ok, 5}
-
   iex> Formular.eval("min(5, 100)", [])
   {:ok, 5}
 
@@ -81,86 +83,34 @@ defmodule Formular do
 
   iex> Formular.eval("count * 5", [count: 6])
   {:ok, 30}
-
-  iex> Formular.eval("10 + undefined", [])
-  {:error, :undefined_function, {:undefined, 0}}
   ```
   """
 
   def eval(text, binding, opts \\ @default_eval_options) do
-    with {:ok, code} <- parse(text) do
-      eval_code(code, binding, opts)
+    with {:ok, ast} <- Code.string_to_quoted(text) do
+      {ret, _} =
+        ast
+        |> with_context(opts[:context])
+        |> Code.eval_quoted(binding)
+
+      {:ok, ret}
     end
   end
 
-  defp eval_code(n, _binding, _opts) when is_integer(n) do
-    {:ok, n}
-  end
+  defp with_context(ast, nil) do
+    quote do
+      import Kernel, only: unquote(@kernel_functions)
 
-  defp eval_code(text, _binding, _opts) when is_binary(text) do
-    {:ok, text}
-  end
-
-  defp eval_code(fun, binding, opts) when is_atom(fun) do
-    eval_code([fun], binding, opts)
-  end
-
-  defp eval_code([fun | args], binding, opts) when is_atom(fun) do
-    case mfa(fun, args, binding, opts) do
-      {:ok, {module, f, args}} ->
-        {:ok, apply(module, f, args)}
-
-      {:ok, {f, args}} when is_function(f) ->
-        {:ok, apply(f, args)}
-
-      other ->
-        other
+      unquote(ast)
     end
   end
 
-  defp eval_args([], _binding, _opts) do
-    {:ok, []}
-  end
+  defp with_context(ast, context) do
+    quote do
+      import Kernel, only: unquote(@kernel_functions)
+      import unquote(context)
 
-  defp eval_args([arg | rest], binding, opts) do
-    with {:ok, ret} <- eval_code(arg, binding, opts),
-         {:ok, rest_ret} <- eval_args(rest, binding, opts) do
-      {:ok, [ret | rest_ret]}
-    end
-  end
-
-  defp mfa(fun, args, binding, opts) do
-    arity = Enum.count(args)
-
-    case Keyword.fetch(binding, fun) do
-      {:ok, f} when is_function(f, arity) ->
-        with {:ok, args} <- eval_args(args, binding, opts) do
-          {:ok, {f, args}}
-        end
-
-      {:ok, other} when arity == 0 ->
-        {:ok, {fn -> other end, []}}
-
-      {:ok, _} ->
-        {:error, :argument_error, fun}
-
-      :error ->
-        context = opts[:context]
-
-        cond do
-          function_exported?(context, fun, arity) ->
-            with {:ok, args} <- eval_args(args, binding, opts) do
-              {:ok, {context, fun, args}}
-            end
-
-          fun in @kernel_ops ->
-            with {:ok, args} <- eval_args(args, binding, opts) do
-              {:ok, {Kernel, fun, args}}
-            end
-
-          true ->
-            {:error, :undefined_function, {fun, arity}}
-        end
+      unquote(ast)
     end
   end
 end
