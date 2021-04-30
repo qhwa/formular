@@ -1,4 +1,6 @@
 defmodule Formular.TestContext do
+  @moduledoc false
+
   def foo() do
     42
   end

@@ -24,6 +24,11 @@ defmodule Formular.MixProject do
 
   # Run "mix help deps" to learn about dependencies.
   defp deps do
-    []
+    [
+      {:credo, "~> 1.5", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
+      {:git_hooks, "~> 0.5", only: [:dev, :test], runtime: false},
+      {:excoveralls, "~> 0.14", only: :test}
+    ]
   end
 end
