@@ -1,6 +1,6 @@
 defmodule Formular do
   @moduledoc """
-  A formular parser
+  A formula evalutator.
   """
 
   @kernel_functions [
@@ -86,11 +86,24 @@ defmodule Formular do
 
   iex> Formular.eval("add.(1, 2)", [add: &(&1 + &2)])
   {:ok, 3}
+
+  iex> Formular.eval("Map.new", [])
+  {:error, :contains_module_dot}
+
+  iex> Formular.eval("Enum.count([1])", [])
+  {:error, :contains_module_dot}
+
+  iex> Formular.eval("min(0, :os.system_time())", [])
+  {:error, :contains_module_dot}
+
+  iex> Formular.eval("inspect.(System.A)", [inspect: &Kernel.inspect/1])
+  {:ok, "System.A"}
   ```
   """
 
   def eval(text, binding, opts \\ @default_eval_options) do
-    with {:ok, ast} <- Code.string_to_quoted(text) do
+    with {:ok, ast} <- Code.string_to_quoted(text),
+         :ok <- valid?(ast) do
       {ret, _} =
         ast
         |> with_context(opts[:context])
@@ -99,6 +112,35 @@ defmodule Formular do
       {:ok, ret}
     end
   end
+
+  defp valid?(ast) do
+    cond do
+      contains_module_dot?(ast) ->
+        {:error, :contains_module_dot}
+
+      true ->
+        :ok
+    end
+  end
+
+  def contains_module_dot?({:., _pos, [callee, func]}) when is_atom(func),
+    do: module?(callee)
+
+  def contains_module_dot?({op, _pos, args}),
+    do: contains_module_dot?(op) or contains_module_dot?(args)
+
+  def contains_module_dot?([]),
+    do: false
+
+  def contains_module_dot?([ast | rest]),
+    do: contains_module_dot?(ast) or contains_module_dot?(rest)
+
+  def contains_module_dot?(_),
+    do: false
+
+  defp module?({:__aliases__, _pos, _}), do: true
+  defp module?(mod) when is_atom(mod), do: true
+  defp module?(_), do: false
 
   defp with_context(ast, nil) do
     quote do
