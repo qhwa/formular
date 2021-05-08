@@ -83,6 +83,9 @@ defmodule Formular do
 
   iex> Formular.eval("count * 5", [count: 6])
   {:ok, 30}
+
+  iex> Formular.eval("add.(1, 2)", [add: &(&1 + &2)])
+  {:ok, 3}
   ```
   """
 
