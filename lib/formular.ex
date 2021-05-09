@@ -104,12 +104,26 @@ defmodule Formular do
 
   iex> Formular.eval("mod = IO; mod.inspect(1)", [])
   {:error, :called_module_function}
+
+  iex> "a = b = 10; a * b" |> Code.string_to_quoted!() |> Formular.eval([])
+  {:ok, 100}
   ```
   """
 
-  def eval(text, binding, opts \\ @default_eval_options) do
-    with {:ok, ast} <- Code.string_to_quoted(text),
-         :ok <- valid?(ast) do
+  @spec eval(code :: binary() | Macro.t(), keyword()) :: {:ok, term()} | {:error, term()}
+  def eval(text_or_ast, binding, opts \\ @default_eval_options)
+
+  def eval(text, binding, opts) when is_binary(text) do
+    with {:ok, ast} <- Code.string_to_quoted(text) do
+      eval_ast(ast, binding, opts)
+    end
+  end
+
+  def eval(any, binding, opts),
+    do: eval_ast(any, binding, opts)
+
+  defp eval_ast(ast, binding, opts) do
+    with :ok <- valid?(ast) do
       {ret, _} =
         ast
         |> with_context(opts[:context])
