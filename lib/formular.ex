@@ -98,6 +98,9 @@ defmodule Formular do
 
   iex> Formular.eval("inspect.(System.A)", [inspect: &Kernel.inspect/1])
   {:ok, "System.A"}
+
+  iex> Formular.eval "f = &IO.inspect/1", []              
+  {:error, :called_module_function}
   ```
   """
 
