@@ -101,6 +101,9 @@ defmodule Formular do
 
   iex> Formular.eval "f = &IO.inspect/1", []              
   {:error, :called_module_function}
+
+  iex> Formular.eval("mod = IO; mod.inspect(1)", [])
+  {:error, :called_module_function}
   ```
   """
 
@@ -127,8 +130,8 @@ defmodule Formular do
     end
   end
 
-  def contains_module_dot?({:., _pos, [callee, func]}) when is_atom(func),
-    do: module?(callee)
+  def contains_module_dot?({:., _pos, [_callee, func]}) when is_atom(func),
+    do: true
 
   def contains_module_dot?({op, _pos, args}),
     do: contains_module_dot?(op) or contains_module_dot?(args)
@@ -141,10 +144,6 @@ defmodule Formular do
 
   def contains_module_dot?(_),
     do: false
-
-  defp module?({:__aliases__, _pos, _}), do: true
-  defp module?(mod) when is_atom(mod), do: true
-  defp module?(_), do: false
 
   defp with_context(ast, nil) do
     quote do
