@@ -70,14 +70,14 @@ Only a picked list of Kernel functions are supported out of the box so that dang
 
 Check [the code](https://github.com/qhwa/formular/blob/master/lib/formular.ex#L6) for the whole list.
 
-Calling to modules are disallowed for security reason. For example:
+**Directly calling to module functions in the expression are disallowed** for security reason. For example:
 
 ```elixir
 iex> Formular.eval("Map.new", [])
-{:error, :contains_module_dot}
+{:error, :called_module_function}
 
 iex> Formular.eval("min(0, :os.system_time())", [])
-{:error, :contains_module_dot}
+{:error, :called_module_function}
 ```
 
 ## License

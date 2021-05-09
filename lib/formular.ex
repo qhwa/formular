@@ -88,13 +88,13 @@ defmodule Formular do
   {:ok, 3}
 
   iex> Formular.eval("Map.new", [])
-  {:error, :contains_module_dot}
+  {:error, :called_module_function}
 
   iex> Formular.eval("Enum.count([1])", [])
-  {:error, :contains_module_dot}
+  {:error, :called_module_function}
 
   iex> Formular.eval("min(0, :os.system_time())", [])
-  {:error, :contains_module_dot}
+  {:error, :called_module_function}
 
   iex> Formular.eval("inspect.(System.A)", [inspect: &Kernel.inspect/1])
   {:ok, "System.A"}
@@ -116,7 +116,7 @@ defmodule Formular do
   defp valid?(ast) do
     cond do
       contains_module_dot?(ast) ->
-        {:error, :contains_module_dot}
+        {:error, :called_module_function}
 
       true ->
         :ok
