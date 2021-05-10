@@ -27,4 +27,41 @@ defmodule FormularTest do
 
     assert eval(f, [], context: TestContext) == {:ok, 10}
   end
+
+  test "with `if`" do
+    f = """
+      a = 10
+      if a >= 5 do
+        "GTE"
+      else
+        "LT"
+      end
+    """
+
+    assert eval(f, []) == {:ok, "GTE"}
+  end
+
+  test "defining a function" do
+    f = """
+      a = fn ->
+        :foo
+      end
+
+      a.()
+    """
+
+    assert eval(f, []) == {:ok, :foo}
+  end
+
+  test "calling a module function in a newly defined function will not work" do
+    f = """
+      a = fn ->
+        :os.system_time()
+      end
+
+      a.()
+    """
+
+    assert eval(f, []) == {:error, :called_module_function}
+  end
 end

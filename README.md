@@ -49,7 +49,7 @@ iex> "a = b = 10; a * b" |> Code.string_to_quoted!() |> Formular.eval([])
 
 Kernel functions are limitedly supported. Only a picked list of Kernel functions are supported out of the box so that dangerouse functions such as `Kernel.exit/1` will not be invoked.
 
-Check [the code](https://github.com/qhwa/formular/blob/master/lib/formular.ex#L6) for the whole list.
+Refer to [the code](https://github.com/qhwa/formular/blob/master/lib/formular.ex#L6) for the whole list.
 
 ```elixir
 # Kernel function
