@@ -43,7 +43,7 @@ iex> "a = b = 10; a * b" |> Code.string_to_quoted!() |> Formular.eval([])
 {:ok, 100}
 ```
 
-...so that you can parse the formula into an AST and save it, then reuse it when needed in order not to parse it every time when evaluating it.
+...so that you don't have to parse it every time before evaluating it.
 
 ### Functions
 
