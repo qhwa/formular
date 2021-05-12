@@ -131,6 +131,9 @@ defmodule Formular do
 
       {:ok, ret}
     end
+  rescue
+    err ->
+      {:error, err}
   end
 
   defp valid?(ast) do

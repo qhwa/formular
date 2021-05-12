@@ -11,7 +11,7 @@ defmodule FormularTest do
   end
 
   test "argument error" do
-    assert_raise CompileError, fn -> eval("x(1, 2)", x: 42) end
+    assert {:error, %CompileError{}} = eval("x(1, 2)", x: 42)
   end
 
   test "with custom context" do
