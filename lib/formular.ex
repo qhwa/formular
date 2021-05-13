@@ -44,7 +44,7 @@ defmodule Formular do
     {:is_port, 1},
     {:is_reference, 1},
     {:is_struct, 1},
-    {:is_struct, 2},
+    # {:is_struct, 2},
     {:is_tuple, 1},
     {:length, 1},
     {:map_size, 1},
