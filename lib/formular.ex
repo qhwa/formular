@@ -81,7 +81,8 @@ defmodule Formular do
                       to_string: 1
                     ]
                     |> Enum.filter(fn {f, arity} ->
-                      function_exported?(Kernel, f, arity)
+                      function_exported?(Kernel, f, arity) or
+                        macro_exported?(Kernel, f, arity)
                     end)
 
   @default_eval_options [context: nil]
