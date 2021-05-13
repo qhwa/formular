@@ -29,8 +29,9 @@ defmodule Formular do
     {:is_binary, 1},
     {:is_bitstring, 1},
     {:is_boolean, 1},
-    {:is_exception, 1},
-    {:is_exception, 2},
+    # not supported before Elixir v1.11.0
+    # {:is_exception, 1},
+    # {:is_exception, 2},
     {:is_float, 1},
     {:is_function, 1},
     {:is_integer, 1},
