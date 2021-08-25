@@ -28,7 +28,8 @@ defmodule Formular.MixProject do
       {:credo, "~> 1.5", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
       {:git_hooks, "~> 0.5", only: [:dev, :test], runtime: false},
-      {:excoveralls, "~> 0.14", only: :test}
+      {:excoveralls, "~> 0.14", only: :test},
+      {:git_hub_actions, "~> 0.1", only: :dev}
     ]
   end
 end
