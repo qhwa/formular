@@ -85,7 +85,7 @@ defmodule Formular do
                         macro_exported?(Kernel, f, arity)
                     end)
 
-  @default_eval_options [context: nil]
+  @default_eval_options []
 
   @doc """
   Evaluate the expression with binding context.
