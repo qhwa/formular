@@ -78,7 +78,9 @@ defmodule Formular do
                       sigil_r: 2,
                       sigil_s: 2,
                       sigil_w: 2,
-                      to_string: 1
+                      tap: 2,
+                      to_string: 1,
+                      then: 2
                     ]
                     |> Enum.filter(fn {f, arity} ->
                       function_exported?(Kernel, f, arity) or
