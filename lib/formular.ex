@@ -114,22 +114,22 @@ defmodule Formular do
   {:ok, 3}
 
   iex> Formular.eval("Map.new", [])
-  {:error, :called_module_function}
+  {:error, :no_calling_module_function}
 
   iex> Formular.eval("Enum.count([1])", [])
-  {:error, :called_module_function}
+  {:error, :no_calling_module_function}
 
   iex> Formular.eval("min(0, :os.system_time())", [])
-  {:error, :called_module_function}
+  {:error, :no_calling_module_function}
 
   iex> Formular.eval("inspect.(System.A)", [inspect: &Kernel.inspect/1])
   {:ok, "System.A"}
 
   iex> Formular.eval "f = &IO.inspect/1", []              
-  {:error, :called_module_function}
+  {:error, :no_calling_module_function}
 
   iex> Formular.eval("mod = IO; mod.inspect(1)", [])
-  {:error, :called_module_function}
+  {:error, :no_calling_module_function}
 
   iex> "a = b = 10; a * b" |> Code.string_to_quoted!() |> Formular.eval([])
   {:ok, 100}
@@ -166,7 +166,7 @@ defmodule Formular do
     # credo:disable-for-next-line
     cond do
       contains_module_dot?(ast) ->
-        {:error, :called_module_function}
+        {:error, :no_calling_module_function}
 
       true ->
         :ok
