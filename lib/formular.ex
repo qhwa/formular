@@ -161,7 +161,7 @@ defmodule Formular do
   end
 
   defp valid?(ast) do
-    # credo:disable-for-next-line 
+    # credo:disable-for-next-line
     cond do
       contains_module_dot?(ast) ->
         {:error, :called_module_function}
