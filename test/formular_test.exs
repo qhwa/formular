@@ -62,6 +62,6 @@ defmodule FormularTest do
       a.()
     """
 
-    assert eval(f, []) == {:error, :called_module_function}
+    assert eval(f, []) == {:error, :no_calling_module_function}
   end
 end

@@ -84,10 +84,10 @@ iex> Formular.eval("10 + foo", [], context: MyContext)
 
 ```elixir
 iex> Formular.eval("Map.new", [])
-{:error, :called_module_function}
+{:error, :no_calling_module_function}
 
 iex> Formular.eval("min(0, :os.system_time())", [])
-{:error, :called_module_function}
+{:error, :no_calling_module_function}
 ```
 
 ## License
