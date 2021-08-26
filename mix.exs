@@ -4,6 +4,7 @@ defmodule Formular.MixProject do
   def project do
     [
       app: :formular,
+      description: "A simple extendable DSL evaluator.",
       version: "0.2.0",
       elixir: "~> 1.11",
       start_permanent: Mix.env() == :prod,
@@ -16,7 +17,8 @@ defmodule Formular.MixProject do
         "coveralls.post": :test,
         "coveralls.html": :test
       ],
-      docs: docs()
+      docs: docs(),
+      package: package()
     ]
   end
 
@@ -46,6 +48,22 @@ defmodule Formular.MixProject do
     [
       main: "readme",
       extras: ~w[README.md]
+    ]
+  end
+
+  defp package do
+    [
+      licenses: ["MIT"],
+      maintainers: [
+        "qhwa <qhwa@pnq.cc>"
+      ],
+      source_url: "https://github.com/qhwa/formular",
+      links: %{
+        home: "https://github.com/qhwa/formular"
+      },
+      files: ~w[
+        lib mix.exs
+      ]
     ]
   end
 end
