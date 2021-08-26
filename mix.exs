@@ -6,7 +6,7 @@ defmodule Formular.MixProject do
       app: :formular,
       description: "A simple extendable DSL evaluator.",
       version: "0.2.0",
-      elixir: "~> 1.11",
+      elixir: ">= 1.10.0",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
       deps: deps(),
@@ -46,8 +46,7 @@ defmodule Formular.MixProject do
 
   defp docs do
     [
-      main: "readme",
-      extras: ~w[README.md]
+      main: "Formular"
     ]
   end
 
