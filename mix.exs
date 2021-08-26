@@ -58,7 +58,7 @@ defmodule Formular.MixProject do
       ],
       source_url: "https://github.com/qhwa/formular",
       links: %{
-        home: "https://github.com/qhwa/formular"
+        Github: "https://github.com/qhwa/formular"
       },
       files: ~w[
         lib mix.exs
