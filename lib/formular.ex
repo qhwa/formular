@@ -309,28 +309,34 @@ defmodule Formular do
 
   defp valid?(ast) do
     # credo:disable-for-next-line
-    cond do
-      contains_module_dot?(ast) ->
-        {:error, :no_calling_module_function}
-
-      true ->
+    case check_rules(ast) do
+      false ->
         :ok
+
+      ret ->
+        {:error, ret}
     end
   end
 
-  defp contains_module_dot?({:., _pos, [_callee, func]}) when is_atom(func),
-    do: true
+  defp check_rules({:., _pos, [_callee, func]}) when is_atom(func),
+    do: :no_calling_module_function
 
-  defp contains_module_dot?({op, _pos, args}),
-    do: contains_module_dot?(op) or contains_module_dot?(args)
+  defp check_rules({:import, _pos, [_ | _]}),
+    do: :no_import_or_require
 
-  defp contains_module_dot?([]),
+  defp check_rules({:require, _pos, [_]}),
+    do: :no_import_or_require
+
+  defp check_rules({op, _pos, args}),
+    do: check_rules(op) || check_rules(args)
+
+  defp check_rules([]),
     do: false
 
-  defp contains_module_dot?([ast | rest]),
-    do: contains_module_dot?(ast) or contains_module_dot?(rest)
+  defp check_rules([ast | rest]),
+    do: check_rules(ast) || check_rules(rest)
 
-  defp contains_module_dot?(_),
+  defp check_rules(_),
     do: false
 
   defp with_context(ast, nil) do
