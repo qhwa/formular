@@ -11,7 +11,8 @@ defmodule Formular do
   Here's an example using this module to evaluate a discount number against an order struct:
 
   ```elixir
-  iex> discount_formula = """
+  iex> discount_formula =
+  ...> """
   ...>   case order do
   ...>     # old books get a big promotion
   ...>     %{book: %{year: year}} when year < 2000 ->
