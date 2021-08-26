@@ -1,4 +1,4 @@
-A simple extendable DSL evaluator
+A simple extendable DSL evaluator ![CI badget](https://github.com/qhwa/formular/actions/workflows/ci/badge.svg)
 
 ## Installation
 
