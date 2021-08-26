@@ -5,7 +5,7 @@ A simple extendable DSL evaluator
 ```elixir
 def deps do
   [
-    {:formular, "~> 0.3"}
+    {:formular, "~> 0.2"}
   ]
 end
 ```
