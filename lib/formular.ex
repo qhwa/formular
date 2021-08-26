@@ -1,6 +1,139 @@
 defmodule Formular do
   @moduledoc """
-  A formula evalutator.
+  A simple extendable DSL evaluator. It's a limited version of `Code.eval_string/3` or `Code.eval_quoted/3`.
+
+  So far, the limitations are:
+
+  - No calling module functions;
+  - No calling some functions which can cause VM to exit;
+  - No sending messages.
+
+  Here's an example using this module to evaluate a discount number against an order struct:
+
+  ```elixir
+  iex> discount_formula = """
+  ...>   case order do
+  ...>     # old books get a big promotion
+  ...>     %{book: %{year: year}} when year < 2000 ->
+  ...>       0.5
+  ...>   
+  ...>     %{book: %{tags: tags}} ->
+  ...>       # Elixir books!
+  ...>       if "elixir" in tags do
+  ...>         0.9
+  ...>       else
+  ...>         1.0
+  ...>       end
+  ...>
+  ...>     _ ->
+  ...>       1.0
+  ...>   end
+  ...> """
+  ...>
+  ...> book_order = %{
+  ...>   book: %{
+  ...>     title: "Elixir in Action", year: 2019, tags: ["elixir"]
+  ...>   }
+  ...> }
+  ...>
+  ...> Formular.eval(discount_formula, [order: book_order])
+  {:ok, 0.9}
+  ```
+
+  The code being evaluated is just a piece of Elixir code, so it can be expressive when describing business rules.
+
+  ## Usage
+
+  ### Simple expressions
+
+  ```elixir
+  # number
+  iex> Formular.eval("1", [])
+  {:ok, 1} # <- note that it's an integer
+
+  # plain string
+  iex> Formular.eval(~s["some text"], [])
+  {:ok, "some text"}
+
+  # atom
+  iex> Formular.eval(":foo", [])
+  {:ok, :foo}
+
+  # list
+  iex> Formular.eval("[:foo, Bar]", [])
+  {:ok, [:foo, Bar]}
+  ```
+
+  ### Variables
+
+  Variables can be passed within the `binding` parameter.
+
+  ```elixir
+  # bound value
+  iex> Formular.eval("1 + foo", [foo: 42])
+  {:ok, 43}
+  ```
+
+  ### Functions in the code
+
+  #### Kernel functions
+
+  Kernel functions are limitedly supported. Only a picked list of Kernel functions are supported out of the box so that dangerouse functions such as `Kernel.exit/1` will not be invoked.
+
+  Refer to [the code](https://github.com/qhwa/formular/blob/master/lib/formular.ex#L6) for the whole list.
+
+  ```elixir
+  # Kernel function
+  iex> Formular.eval("min(5, 100)", [])
+  {:ok, 5}
+
+  iex> Formular.eval("max(5, 100)", [])
+  {:ok, 100}
+  ```
+
+  #### Custom functions
+
+  Custom functions can be provided in two ways, either in a binding lambda:
+
+  ```elixir
+  # bound function
+  iex> Formular.eval("1 + add.(-1, 5)", [add: &(&1 + &2)])
+  {:ok, 5}
+  ```
+  ... or with a context module:
+
+  ```elixir
+  iex> defmodule MyContext do
+  ...>   def foo() do
+  ...>     42
+  ...>   end
+  ...> end
+
+  ...> Formular.eval("10 + foo", [], context: MyContext)
+  {:ok, 52}
+  ```
+
+  **Directly calling to module functions in the code are disallowed** for security reason. For example:
+
+  ```elixir
+  iex> Formular.eval("Map.new", [])
+  {:error, :no_calling_module_function}
+
+  iex> Formular.eval("min(0, :os.system_time())", [])
+  {:error, :no_calling_module_function}
+  ```
+
+  ### Evaluating AST instead of plain string code
+
+  You may want to use AST instead of string for performance consideration. In this case, an AST can be passed to `eval/3`:
+
+  ```elixir
+  iex> "a = b = 10; a * b" |> Code.string_to_quoted!() |> Formular.eval([])
+  {:ok, 100}
+  ```
+
+  ...so that you don't have to parse it every time before evaluating it.
+
   """
 
   @kernel_functions [
@@ -89,10 +222,22 @@ defmodule Formular do
 
   @default_eval_options []
 
-  @doc """
-  Evaluate the expression with binding context.
+  @type code :: binary() | Macro.t()
+  @type option :: {:context, module()}
+  @type options :: [option()]
+  @type eval_result :: {:ok, term()} | {:error, term()}
 
-  ## Example
+  @doc """
+  Evaluate the code with binding context.
+
+  ## Parameters
+
+  - `code` : code to eval. Could be a binary, or parsed AST.
+  - `binding` : the variable binding to support the evaluation
+  - `options` : current these options are supported:
+    - `context` : The module to import before evaluation.
+
+  ## Examples
 
   ```elixir
   iex> Formular.eval("1", [])
@@ -136,8 +281,8 @@ defmodule Formular do
   ```
   """
 
-  @spec eval(code :: binary() | Macro.t(), keyword()) :: {:ok, term()} | {:error, term()}
-  def eval(text_or_ast, binding, opts \\ @default_eval_options)
+  @spec eval(code, binding :: keyword(), options()) :: eval_result()
+  def eval(code, binding, opts \\ @default_eval_options)
 
   def eval(text, binding, opts) when is_binary(text) do
     with {:ok, ast} <- Code.string_to_quoted(text) do
@@ -145,8 +290,8 @@ defmodule Formular do
     end
   end
 
-  def eval(any, binding, opts),
-    do: eval_ast(any, binding, opts)
+  def eval(ast, binding, opts),
+    do: eval_ast(ast, binding, opts)
 
   defp eval_ast(ast, binding, opts) do
     with :ok <- valid?(ast) do
@@ -173,19 +318,19 @@ defmodule Formular do
     end
   end
 
-  def contains_module_dot?({:., _pos, [_callee, func]}) when is_atom(func),
+  defp contains_module_dot?({:., _pos, [_callee, func]}) when is_atom(func),
     do: true
 
-  def contains_module_dot?({op, _pos, args}),
+  defp contains_module_dot?({op, _pos, args}),
     do: contains_module_dot?(op) or contains_module_dot?(args)
 
-  def contains_module_dot?([]),
+  defp contains_module_dot?([]),
     do: false
 
-  def contains_module_dot?([ast | rest]),
+  defp contains_module_dot?([ast | rest]),
     do: contains_module_dot?(ast) or contains_module_dot?(rest)
 
-  def contains_module_dot?(_),
+  defp contains_module_dot?(_),
     do: false
 
   defp with_context(ast, nil) do
