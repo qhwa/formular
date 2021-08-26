@@ -15,7 +15,8 @@ defmodule Formular.MixProject do
         "coveralls.detail": :test,
         "coveralls.post": :test,
         "coveralls.html": :test
-      ]
+      ],
+      docs: docs()
     ]
   end
 
@@ -36,7 +37,15 @@ defmodule Formular.MixProject do
       {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
       {:git_hooks, "~> 0.5", only: [:dev, :test], runtime: false},
       {:excoveralls, "~> 0.14", only: :test},
-      {:git_hub_actions, "~> 0.1", only: :dev}
+      {:git_hub_actions, "~> 0.1", only: :dev},
+      {:ex_doc, ">= 0.0.0", only: :dev}
+    ]
+  end
+
+  defp docs do
+    [
+      main: "readme",
+      extras: ~w[README.md]
     ]
   end
 end
