@@ -1,5 +1,9 @@
 A simple extendable DSL evaluator ![CI badget](https://github.com/qhwa/formular/actions/workflows/ci.yml/badge.svg)
 
+**SECURITY NOTICE**
+
+Please be aware that, Formular is not a safe sandbox at this version. The design purpose is more about compiling your configuration into runnable code inside the application. So if the code comes from some untrusted user inputs, it could potentially damage the system.
+
 ## Installation
 
 ```elixir
