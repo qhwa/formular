@@ -339,6 +339,10 @@ defmodule Formular do
     ]
 
   defp valid?(ast) do
+    :ok
+  end
+
+  defp valid?(ast) do
     # credo:disable-for-next-line
     case check_rules(ast) do
       false ->
