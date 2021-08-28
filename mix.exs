@@ -41,7 +41,8 @@ defmodule Formular.MixProject do
       {:git_hooks, "~> 0.5", only: [:dev, :test], runtime: false},
       {:excoveralls, "~> 0.14", only: :test},
       {:git_hub_actions, "~> 0.1", only: :dev},
-      {:ex_doc, ">= 0.0.0", only: :dev}
+      {:ex_doc, ">= 0.0.0", only: :dev},
+      {:benchee, "~> 1.0.1", only: :dev}
     ]
   end
 
