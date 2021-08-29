@@ -1,15 +1,20 @@
 defmodule Formular do
+  require Logger
+
   @kernel_functions Formular.DefaultFunctions.kernel_functions()
   @kernel_macros Formular.DefaultFunctions.kernel_macros()
+  @default_eval_options []
+  @default_max_heap_size 1_000_000
+  @default_timeout :infinity
 
   @moduledoc """
-  A simple extendable DSL evaluator. It's a limited version of `Code.eval_string/3` or `Code.eval_quoted/3`.
-
-  So far, the limitations are:
+  A tiny extendable DSL evaluator. It's a wrap around Elixir's `Code.eval_string/3` or `Code.eval_quoted/3`, with the following limitations:
 
   - No calling module functions;
   - No calling some functions which can cause VM to exit;
-  - No sending messages.
+  - No sending messages;
+  - (optional) memory usage limit;
+  - (optional) execution time limit.
 
   Here's an example using this module to evaluate a discount number against an order struct:
 
@@ -45,9 +50,7 @@ defmodule Formular do
 
   The code being evaluated is just a piece of Elixir code, so it can be expressive when describing business rules.
 
-  ## Usage
-
-  ### Simple expressions
+  ## Literals
 
   ```elixir
   # number
@@ -65,9 +68,13 @@ defmodule Formular do
   # list
   iex> Formular.eval("[:foo, Bar]", [])
   {:ok, [:foo, Bar]}
+
+  # keyword list
+  iex> Formular.eval("[a: 1, b: :hi]", [])
+  {:ok, [a: 1, b: :hi]}
   ```
 
-  ### Variables
+  ## Variables
 
   Variables can be passed within the `binding` parameter.
 
@@ -77,9 +84,9 @@ defmodule Formular do
   {:ok, 43}
   ```
 
-  ### Functions in the code
+  ## Functions in the code
 
-  #### Kernel functions and macros
+  ### Kernel functions and macros
 
   Kernel functions and macros are limitedly supported. Only a picked list of them are supported out of the box so that dangerouse functions such as `Kernel.exit/1` will not be invoked.
 
@@ -106,7 +113,7 @@ defmodule Formular do
   {:ok, 100}
   ```
 
-  #### Custom functions
+  ### Custom functions
 
   Custom functions can be provided in two ways, either in a binding lambda:
 
@@ -138,7 +145,7 @@ defmodule Formular do
   {:error, :no_calling_module_function}
   ```
 
-  ### Evaluating AST instead of plain string code
+  ## Evaluating AST instead of plain string code
 
   You may want to use AST instead of string for performance consideration. In this case, an AST can be passed to `eval/3`:
 
@@ -149,12 +156,41 @@ defmodule Formular do
 
   ...so that you don't have to parse it every time before evaluating it.
 
+  ## Limiting execution time
+
+  The execution time can be limited with the `:timeout` option:
+
+  ```elixir
+  iex> sleep = fn -> :timer.sleep(:infinity) end
+  ...> Formular.eval("sleep.()", [sleep: sleep], timeout: 10)
+  {:error, :timeout}
+  ```
+
+  Default timeout is `:infinity`.
+
+  ## Limiting heap usage
+
+  The evaluation can also be limited in heap size, with `:max_heap_size` option. When the limit is exceeded, an error `{:error, :killed}` will be returned.
+
+  Example:
+
+  ```elixir
+  iex> code = "for a <- %Range{first: 0, last: 999_999_999_999, step: 1}, do: to_string(a)"
+  ...> Formular.eval(code, [], timeout: :infinity, max_heap_size: 1_000)
+  {:error, :killed}
+  ```
+
+  The default max heap size is 1_000_000 words.
   """
 
-  @default_eval_options []
+  @supervisor Formular.Tasks
 
   @type code :: binary() | Macro.t()
-  @type option :: {:context, module()}
+  @type option ::
+          {:context, module()}
+          | {:max_heap_size, non_neg_integer()}
+          | {:timeout, non_neg_integer() | :infinity}
+
   @type options :: [option()]
   @type eval_result :: {:ok, term()} | {:error, term()}
 
@@ -167,6 +203,8 @@ defmodule Formular do
   - `binding` : the variable binding to support the evaluation
   - `options` : current these options are supported:
     - `context` : The module to import before evaluation.
+    - `timeout` : A timer used to terminate the evaluation after x milliseconds. `#{@default_timeout}` by default.
+    - `max_heap_size` : A limit on heap memory usage. `#{@default_max_heap_size}` words by default.
 
   ## Examples
 
@@ -226,17 +264,57 @@ defmodule Formular do
 
   defp eval_ast(ast, binding, opts) do
     with :ok <- valid?(ast) do
-      {ret, _} =
-        ast
-        |> Code.eval_quoted(
-          binding,
-          functions: imported_functions(opts[:context]),
-          macros: imported_macros(opts[:context]),
-          requires: [Elixir.Kernel]
-        )
-
-      {:ok, ret}
+      spawn_and_eval(ast, binding, opts)
     end
+  end
+
+  defp spawn_and_eval(ast, binding, opts) do
+    parent = self()
+
+    context = Keyword.get(opts, :context)
+    timeout = Keyword.get(opts, :timeout, @default_timeout)
+    max_heap_size = Keyword.get(opts, :max_heap_size, @default_max_heap_size)
+
+    {:ok, pid} =
+      Task.Supervisor.start_child(
+        @supervisor,
+        fn ->
+          Process.flag(:max_heap_size, max_heap_size)
+
+          ret = do_eval(ast, binding, context)
+          send(parent, {:result, ret})
+        end
+      )
+
+    ref = Process.monitor(pid)
+
+    receive do
+      {:result, ret} ->
+        Process.demonitor(ref, [:flush])
+        ret
+
+      {:DOWN, ^ref, :process, ^pid, reason} ->
+        Logger.error("Evaluating process killed, reason: #{inspect(reason)}")
+        {:error, :killed}
+    after
+      timeout ->
+        Process.demonitor(ref, [:flush])
+        :ok = Task.Supervisor.terminate_child(@supervisor, pid)
+        {:error, :timeout}
+    end
+  end
+
+  defp do_eval(ast, binding, context) do
+    {ret, _binding} =
+      ast
+      |> Code.eval_quoted(
+        binding,
+        functions: imported_functions(context),
+        macros: imported_macros(context),
+        requires: [Elixir.Kernel]
+      )
+
+    {:ok, ret}
   rescue
     err ->
       {:error, err}
