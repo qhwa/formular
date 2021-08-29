@@ -16,6 +16,38 @@ end
 
 ## Usage
 
+### A configuration code example
+
+```elixir
+iex> discount_formula = ~s"
+...>   case order do
+...>     # old books get a big promotion
+...>     %{book: %{year: year}} when year < 2000 ->
+...>       0.5
+...>   
+...>     %{book: %{tags: tags}} ->
+...>       # Elixir books!
+...>       if ~s{elixir} in tags do
+...>         0.9
+...>       else
+...>         1.0
+...>       end
+...>
+...>     _ ->
+...>       1.0
+...>   end
+...> "
+...>
+...> book_order = %{
+...>   book: %{
+...>     title: "Elixir in Action", year: 2019, tags: ["elixir"]
+...>   }
+...> }
+...>
+...> Formular.eval(discount_formula, [order: book_order])
+{:ok, 0.9}
+```
+
 ### Simple expressions
 
 ```elixir
