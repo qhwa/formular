@@ -204,7 +204,7 @@ defmodule Formular do
   - `options` : current these options are supported:
     - `context` : The module to import before evaluation.
     - `timeout` : A timer used to terminate the evaluation after x milliseconds. `#{@default_timeout}` milliseconds by default.
-    - `max_heap_size` : A limit on heap memory usage. `#{@default_max_heap_size}` words by default.
+    - `max_heap_size` : A limit on heap memory usage. If set to zero, the max heap size limit is disabled. `#{@default_max_heap_size}` words by default.
 
   ## Examples
 
