@@ -7,6 +7,11 @@ It's a wrap around Elixir's `Code.eval_string/3` or `Code.eval_quoted/3`, with t
   - No sending messages;
   - (optional) memory usage limit;
   - (optional) execution time limit.
+
+**SECURITY NOTICE**
+
+Please be aware that, although it provides some security limitations, Formular does not aim to be a secure sandbox. The design purpose is more about compiling configurations into runnable code inside the application. So if the code comes from some untrusted user inputs, it could potentially damage the system.
+
 ## Installation
 
 ```elixir
