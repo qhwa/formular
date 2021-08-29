@@ -5,7 +5,7 @@ defmodule Formular do
   @kernel_macros Formular.DefaultFunctions.kernel_macros()
   @default_eval_options []
   @default_max_heap_size 1_000_000
-  @default_timeout :infinity
+  @default_timeout 5_000
 
   @moduledoc """
   A tiny extendable DSL evaluator. It's a wrap around Elixir's `Code.eval_string/3` or `Code.eval_quoted/3`, with the following limitations:
@@ -166,7 +166,7 @@ defmodule Formular do
   {:error, :timeout}
   ```
 
-  Default timeout is `:infinity`.
+  Default timeout is 5_000 milliseconds.
 
   ## Limiting heap usage
 
@@ -175,7 +175,7 @@ defmodule Formular do
   Example:
 
   ```elixir
-  iex> code = "for a <- %Range{first: 0, last: 999_999_999_999, step: 1}, do: to_string(a)"
+  iex> code = "for a <- 0..999_999_999_999, do: to_string(a)"
   ...> Formular.eval(code, [], timeout: :infinity, max_heap_size: 1_000)
   {:error, :killed}
   ```
@@ -203,7 +203,7 @@ defmodule Formular do
   - `binding` : the variable binding to support the evaluation
   - `options` : current these options are supported:
     - `context` : The module to import before evaluation.
-    - `timeout` : A timer used to terminate the evaluation after x milliseconds. `#{@default_timeout}` by default.
+    - `timeout` : A timer used to terminate the evaluation after x milliseconds. `#{@default_timeout}` milliseconds by default.
     - `max_heap_size` : A limit on heap memory usage. `#{@default_max_heap_size}` words by default.
 
   ## Examples
