@@ -1,4 +1,7 @@
 defmodule Formular do
+  @kernel_functions Formular.DefaultFunctions.kernel_functions()
+  @kernel_macros Formular.DefaultFunctions.kernel_macros()
+
   @moduledoc """
   A simple extendable DSL evaluator. It's a limited version of `Code.eval_string/3` or `Code.eval_quoted/3`.
 
@@ -76,11 +79,23 @@ defmodule Formular do
 
   ### Functions in the code
 
-  #### Kernel functions
+  #### Kernel functions and macros
 
-  Kernel functions are limitedly supported. Only a picked list of Kernel functions are supported out of the box so that dangerouse functions such as `Kernel.exit/1` will not be invoked.
+  Kernel functions and macros are limitedly supported. Only a picked list of them are supported out of the box so that dangerouse functions such as `Kernel.exit/1` will not be invoked.
 
-  Refer to [the code](https://github.com/qhwa/formular/blob/master/lib/formular.ex#L6) for the whole list.
+  Supported functions from `Kernel` are:
+
+  ```elixir
+  #{inspect(@kernel_functions, pretty: true)}
+  ```
+
+  Supported macros from `Kernel` are:
+
+  ```elixir
+  #{inspect(@kernel_macros, pretty: true)}
+  ```
+
+  Example:
 
   ```elixir
   # Kernel function
@@ -135,9 +150,6 @@ defmodule Formular do
   ...so that you don't have to parse it every time before evaluating it.
 
   """
-
-  @kernel_functions Formular.DefaultFunctions.kernel_functions()
-  @kernel_macros Formular.DefaultFunctions.kernel_macros()
 
   @default_eval_options []
 
