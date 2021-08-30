@@ -339,10 +339,6 @@ defmodule Formular do
     ]
 
   defp valid?(ast) do
-    :ok
-  end
-
-  defp valid?(ast) do
     # credo:disable-for-next-line
     case check_rules(ast) do
       false ->
@@ -352,6 +348,9 @@ defmodule Formular do
         {:error, ret}
     end
   end
+
+  defp check_rules({:., _pos, [Access, :get]}),
+    do: false
 
   defp check_rules({:., _pos, [_callee, func]}) when is_atom(func),
     do: :no_calling_module_function
