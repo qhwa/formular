@@ -1,5 +1,5 @@
 code = """
-  squares = for i <- 0..999, into: %{}, do: {i, i * i}
+  squares = %{3 => 9, 4 => 16, 5 => 25}
   squares[3]
 """
 
