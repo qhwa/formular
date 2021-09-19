@@ -4,8 +4,8 @@ defmodule Formular do
   @kernel_functions Formular.DefaultFunctions.kernel_functions()
   @kernel_macros Formular.DefaultFunctions.kernel_macros()
   @default_eval_options []
-  @default_max_heap_size 1_000_000
-  @default_timeout 5_000
+  @default_max_heap_size :infinity
+  @default_timeout :infinity
 
   @moduledoc """
   A tiny extendable DSL evaluator. It's a wrap around Elixir's `Code.eval_string/3` or `Code.eval_quoted/3`, with the following limitations:
@@ -185,12 +185,13 @@ defmodule Formular do
 
   @supervisor Formular.Tasks
 
-  @type code :: binary() | Macro.t()
+  @type code :: binary() | Macro.t() | {:module, module()}
   @type option ::
-          {:context, module()}
-          | {:max_heap_size, non_neg_integer()}
+          {:context, context()}
+          | {:max_heap_size, non_neg_integer() | :infinity}
           | {:timeout, non_neg_integer() | :infinity}
 
+  @type context :: module()
   @type options :: [option()]
   @type eval_result :: {:ok, term()} | {:error, term()}
 
@@ -253,6 +254,9 @@ defmodule Formular do
   @spec eval(code, binding :: keyword(), options()) :: eval_result()
   def eval(code, binding, opts \\ @default_eval_options)
 
+  def eval({:module, mod}, binding, opts),
+    do: spawn_and_exec(fn -> {:ok, mod.run(binding)} end, opts)
+
   def eval(text, binding, opts) when is_binary(text) do
     with {:ok, ast} <- Code.string_to_quoted(text) do
       eval_ast(ast, binding, opts)
@@ -264,43 +268,53 @@ defmodule Formular do
 
   defp eval_ast(ast, binding, opts) do
     with :ok <- valid?(ast) do
-      spawn_and_eval(ast, binding, opts)
+      spawn_and_exec(
+        fn -> do_eval(ast, binding, opts[:context]) end,
+        opts
+      )
     end
   end
 
-  defp spawn_and_eval(ast, binding, opts) do
+  defp spawn_and_exec(fun, opts) do
     parent = self()
 
-    context = Keyword.get(opts, :context)
     timeout = Keyword.get(opts, :timeout, @default_timeout)
     max_heap_size = Keyword.get(opts, :max_heap_size, @default_max_heap_size)
 
-    {:ok, pid} =
-      Task.Supervisor.start_child(
-        @supervisor,
-        fn ->
-          Process.flag(:max_heap_size, max_heap_size)
+    case {timeout, max_heap_size} do
+      {:infinity, :infinity} ->
+        fun.()
 
-          ret = do_eval(ast, binding, context)
-          send(parent, {:result, ret})
+      _ ->
+        {:ok, pid} =
+          Task.Supervisor.start_child(
+            @supervisor,
+            fn ->
+              if max_heap_size != :infinity do
+                Process.flag(:max_heap_size, max_heap_size)
+              end
+
+              ret = fun.()
+              send(parent, {:result, ret})
+            end
+          )
+
+        ref = Process.monitor(pid)
+
+        receive do
+          {:result, ret} ->
+            Process.demonitor(ref, [:flush])
+            ret
+
+          {:DOWN, ^ref, :process, ^pid, reason} ->
+            Logger.error("Evaluating process killed, reason: #{inspect(reason)}")
+            {:error, :killed}
+        after
+          timeout ->
+            Process.demonitor(ref, [:flush])
+            :ok = Task.Supervisor.terminate_child(@supervisor, pid)
+            {:error, :timeout}
         end
-      )
-
-    ref = Process.monitor(pid)
-
-    receive do
-      {:result, ret} ->
-        Process.demonitor(ref, [:flush])
-        ret
-
-      {:DOWN, ^ref, :process, ^pid, reason} ->
-        Logger.error("Evaluating process killed, reason: #{inspect(reason)}")
-        {:error, :killed}
-    after
-      timeout ->
-        Process.demonitor(ref, [:flush])
-        :ok = Task.Supervisor.terminate_child(@supervisor, pid)
-        {:error, :timeout}
     end
   end
 
@@ -372,4 +386,25 @@ defmodule Formular do
 
   defp check_rules(_),
     do: false
+
+  @doc """
+  Compile the code into an Elixir module function.
+  """
+  @spec compile_to_module!(code(), module(), context()) :: {:module, module()}
+  def compile_to_module!(code, mod, context \\ nil)
+
+  def compile_to_module!(code, mod, context) when is_binary(code),
+    do: code |> Code.string_to_quoted!() |> compile_to_module!(mod, context)
+
+  def compile_to_module!({_, _, _} = ast, mod, context) do
+    with :ok <- valid?(ast) do
+      env = %Macro.Env{
+        functions: imported_functions(context),
+        macros: imported_macros(context),
+        requires: [Elixir.Kernel]
+      }
+
+      Formular.Compiler.create_module(mod, ast, env)
+    end
+  end
 end
