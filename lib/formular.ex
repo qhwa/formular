@@ -276,8 +276,6 @@ defmodule Formular do
   end
 
   defp spawn_and_exec(fun, opts) do
-    parent = self()
-
     timeout = Keyword.get(opts, :timeout, @default_timeout)
     max_heap_size = Keyword.get(opts, :max_heap_size, @default_max_heap_size)
 
@@ -286,20 +284,7 @@ defmodule Formular do
         fun.()
 
       _ ->
-        {:ok, pid} =
-          Task.Supervisor.start_child(
-            @supervisor,
-            fn ->
-              if max_heap_size != :infinity do
-                Process.flag(:max_heap_size, max_heap_size)
-              end
-
-              ret = fun.()
-              send(parent, {:result, ret})
-            end
-          )
-
-        ref = Process.monitor(pid)
+        {pid, ref} = spawn_task(fun, max_heap_size)
 
         receive do
           {:result, ret} ->
@@ -316,6 +301,26 @@ defmodule Formular do
             {:error, :timeout}
         end
     end
+  end
+
+  defp spawn_task(fun, max_heap_size) do
+    parent = self()
+
+    {:ok, pid} =
+      Task.Supervisor.start_child(
+        @supervisor,
+        fn ->
+          if max_heap_size != :infinity do
+            Process.flag(:max_heap_size, max_heap_size)
+          end
+
+          ret = fun.()
+          send(parent, {:result, ret})
+        end
+      )
+
+    ref = Process.monitor(pid)
+    {pid, ref}
   end
 
   defp do_eval(ast, binding, context) do
