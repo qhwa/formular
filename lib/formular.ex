@@ -156,6 +156,23 @@ defmodule Formular do
 
   ...so that you don't have to parse it every time before evaluating it.
 
+  ## Compiling the code into an Elixir module
+
+  Most of the likelihood `Code.eval_*` functions are fast enough for your application. However, compiling to an Elixir module will significantly improve the performance. 
+
+  Code can be compiled into an Elixir module via `Formular.compile_to_module!/3` function, as the following:
+
+  ```elixir
+  iex> code = quote do: min(a, b)
+  ...> compiled = Formular.compile_to_module!(code, MyCompiledMod)
+  {:module, MyCompiledMod}
+  ...> Formular.eval(compiled, [a: 5, b: 15], timeout: 5_000)
+  {:ok, 5}
+  ```
+
+  Alternatively, you can directly call `MyCompiledMod.run(a: 5, b: 15)`
+  when none limitation of CPU or memory will apply.
+
   ## Limiting execution time
 
   The execution time can be limited with the `:timeout` option:
@@ -414,7 +431,10 @@ defmodule Formular do
   end
 
   @doc """
-  Returns used variables in the code.
+  Returns used variables in the code. This can be helpful if
+  you intend to build some UI based on the variables, or to
+  validate if the code is using variables within the allowed
+  list.
 
   ## Example
 
