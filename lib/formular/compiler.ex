@@ -83,14 +83,16 @@ defmodule Formular.Compiler do
   end
 
   @doc false
-  def extract_vars(ast) do
-    {_ast, collection} = do_extract_vars(ast)
-    MapSet.to_list(collection)
-  end
+  def extract_vars(ast),
+    do: do_extract_vars(ast) |> MapSet.to_list()
 
   defp inject_vars(ast) do
-    {ast, collection} = do_extract_vars(ast)
-    {ast, MapSet.to_list(collection)}
+    collection = do_extract_vars(ast)
+
+    {
+      set_hygiene(ast, __MODULE__),
+      MapSet.to_list(collection)
+    }
   end
 
   defp do_extract_vars(ast) do
@@ -101,14 +103,14 @@ defmodule Formular.Compiler do
 
     pre = fn
       {op, _, [left | _]} = ast, acc when op in @scope_and_binding_ops ->
-        {_, bound} = do_extract_vars(left)
+        bound = do_extract_vars(left)
         {ast, acc |> push_scope() |> collect_bound(bound)}
 
       {op, _, _} = ast, acc when op in @scope_ops ->
         {ast, push_scope(acc)}
 
       {op, _, [left, _]} = ast, acc when op in @binding_ops ->
-        {_, bound} = do_extract_vars(left)
+        bound = do_extract_vars(left)
         {ast, collect_bound(acc, bound)}
 
       {:^, _, [{pinned, _, _}]} = ast, acc when is_atom(pinned) ->
@@ -124,20 +126,20 @@ defmodule Formular.Compiler do
       when op in @scope_and_binding_ops ->
         {ast, pop_scope(acc)}
 
-      {var, meta, context}, acc
+      {var, _meta, context} = ast, acc
       when is_atom(var) and is_atom(context) ->
         if defined?(var, acc) do
-          {{var, meta, __MODULE__}, acc}
+          {ast, acc}
         else
-          {{var, meta, __MODULE__}, collect_unbind(acc, var)}
+          {ast, collect_unbind(acc, var)}
         end
 
       ast, vars ->
         {ast, vars}
     end
 
-    {new_ast, {_, collection}} = Macro.traverse(ast, initial_vars, pre, post)
-    {new_ast, collection}
+    {^ast, {_, collection}} = Macro.traverse(ast, initial_vars, pre, post)
+    collection
   end
 
   defp push_scope({scopes, collection}),
@@ -157,6 +159,16 @@ defmodule Formular.Compiler do
 
   defp defined?(var, {scopes, _}),
     do: Enum.any?(scopes, &(var in &1))
+
+  defp set_hygiene(ast, hygiene_context) do
+    Macro.postwalk(ast, fn
+      {var, meta, context} when is_atom(var) and is_atom(context) ->
+        {var, meta, hygiene_context}
+
+      other ->
+        other
+    end)
+  end
 
   defp def_used_variables(raw_ast) do
     vars = extract_vars(raw_ast)
