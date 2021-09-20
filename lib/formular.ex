@@ -407,4 +407,22 @@ defmodule Formular do
       Formular.Compiler.create_module(mod, ast, env)
     end
   end
+
+  @doc """
+  Returns used variables in the code.
+
+  ## Example
+
+  ```elixir
+  iex> code = "f.(a + b)"
+  ...> Formular.used_vars(code)
+  [:a, :b, :f]
+  ```
+  """
+  @spec used_vars(code()) :: [atom()]
+  def used_vars(code) when is_binary(code),
+    do: code |> Code.string_to_quoted!() |> used_vars()
+
+  def used_vars(code),
+    do: Formular.Compiler.extract_vars(code)
 end
