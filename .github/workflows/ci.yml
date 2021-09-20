@@ -53,6 +53,9 @@ jobs:
         if: ${{ contains(matrix.elixir, '1.12.2') && contains(matrix.otp, '24.0') }}
         run: MIX_ENV=test mix credo --strict
       - name: Run tests with coverage
-        run: MIX_ENV=test mix coveralls.github
+        run: mix coveralls.json
+      - uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
       - name: Static code analysis
         run: mix dialyzer
