@@ -418,7 +418,7 @@ defmodule Formular do
   def compile_to_module!(code, mod, context) when is_binary(code),
     do: code |> Code.string_to_quoted!() |> compile_to_module!(mod, context)
 
-  def compile_to_module!({_, _, _} = ast, mod, context) do
+  def compile_to_module!(ast, mod, context) do
     with :ok <- valid?(ast) do
       env = %Macro.Env{
         functions: imported_functions(context),
