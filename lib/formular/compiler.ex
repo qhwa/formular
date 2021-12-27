@@ -102,6 +102,17 @@ defmodule Formular.Compiler do
     }
 
     pre = fn
+      {:cond, _, [[do: cond_do_bock]]} = ast, acc ->
+        acc =
+          for {:->, _, [left, _right]} <- cond_do_bock,
+              unbind_var <- do_extract_vars(left),
+              reduce: acc do
+            acc ->
+              collect_var_if_unbind(acc, unbind_var)
+          end
+
+        {ast, acc}
+
       {op, _, [left | _]} = ast, acc when op in @scope_and_binding_ops ->
         bound = do_extract_vars(left)
         {ast, acc |> push_scope() |> collect_bound(bound)}
@@ -131,7 +142,7 @@ defmodule Formular.Compiler do
         if defined?(var, acc) do
           {ast, acc}
         else
-          {ast, collect_unbind(acc, var)}
+          {ast, collect_var(acc, var)}
         end
 
       ast, vars ->
@@ -148,7 +159,15 @@ defmodule Formular.Compiler do
   defp pop_scope({scopes, collection}),
     do: {tl(scopes), collection}
 
-  defp collect_unbind({scopes, collection}, unbind_var),
+  defp collect_var_if_unbind({scopes, collection}, var) do
+    if Enum.all?(scopes, &(var not in &1)) do
+      {scopes, MapSet.put(collection, var)}
+    else
+      {scopes, collection}
+    end
+  end
+
+  defp collect_var({scopes, collection}, unbind_var),
     do: {scopes, MapSet.put(collection, unbind_var)}
 
   defp delete_unbound({[scope | tail], collection}, var),
