@@ -10,12 +10,15 @@ defmodule Formular.Compiler.ClauseTest do
             :ok ->
               :ok
 
+            %{x: ^x} ->
+              :ok
+
             other ->
               {:other, other}
           end
         end
 
-      assert extract_vars(ast) == [:b]
+      assert extract_vars(ast) == [:b, :x]
     end
   end
 
