@@ -14,6 +14,7 @@ jobs:
         elixir:
           - '1.11.4'
           - '1.12.2'
+          - '1.13.1'
         otp:
           - '21.3'
           - '22.3'
@@ -21,6 +22,8 @@ jobs:
           - '24.0'
         exclude:
           - elixir: '1.12.2'
+            otp: '21.3'
+          - elixir: '1.13.1'
             otp: '21.3'
     steps:
       - name: Checkout
