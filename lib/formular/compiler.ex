@@ -3,9 +3,7 @@ defmodule Formular.Compiler do
   This module is used to compile the code into Elixir modules.
   """
 
-  @scope_and_binding_ops ~w[-> def]a
-  @scope_ops ~w[for]a
-  @binding_ops ~w[<- =]a
+  @temp_module Module.concat(__MODULE__, TempModule)
 
   @doc """
   Create an Elixir module from the raw code (AST).
@@ -40,10 +38,11 @@ defmodule Formular.Compiler do
   end
 
   defp mod_body(raw_ast, env) do
+    unbound_vars = extract_vars(raw_ast, env)
+
     quote do
       unquote(importing(env))
-      unquote(def_run(raw_ast))
-      unquote(def_used_variables(raw_ast))
+      unquote(def_run(raw_ast, unbound_vars))
     end
   end
 
@@ -63,13 +62,11 @@ defmodule Formular.Compiler do
     end
   end
 
-  defp def_run(raw_ast) do
-    {ast, args} = inject_vars(raw_ast)
-
+  defp def_run(ast, args) do
     quote do
       def run(binding) do
         unquote(def_args(args))
-        unquote(ast)
+        unquote(ast |> set_hygiene(__MODULE__))
       end
     end
   end
@@ -83,101 +80,46 @@ defmodule Formular.Compiler do
   end
 
   @doc false
-  def extract_vars(ast),
-    do: do_extract_vars(ast) |> MapSet.to_list()
+  def extract_vars(ast, env \\ %Macro.Env{}, vars \\ MapSet.new())
 
-  defp inject_vars(ast) do
-    collection = do_extract_vars(ast)
+  def extract_vars(ast, env, vars) do
+    mod_body =
+      quote do
+        unquote(importing(env))
+        unquote(def_run(ast, vars))
+      end
 
-    {
-      set_hygiene(ast, __MODULE__),
-      MapSet.to_list(collection)
-    }
-  end
+    try do
+      Module.create(
+        @temp_module,
+        mod_body,
+        env
+      )
 
-  defp do_extract_vars(ast) do
-    initial_vars = {
-      _bound_scopes = [MapSet.new([])],
-      _collection = MapSet.new([])
-    }
-
-    pre = fn
-      {:cond, _, [[do: cond_do_bock]]} = ast, acc ->
-        acc =
-          for {:->, _, [left, _right]} <- cond_do_bock,
-              unbind_var <- do_extract_vars(left),
-              reduce: acc do
-            acc ->
-              collect_var_if_unbind(acc, unbind_var)
-          end
-
-        {ast, acc}
-
-      {op, _, [left | _]} = ast, acc when op in @scope_and_binding_ops ->
-        bound = do_extract_vars(left)
-        {ast, acc |> push_scope() |> collect_bound(bound)}
-
-      {op, _, _} = ast, acc when op in @scope_ops ->
-        {ast, push_scope(acc)}
-
-      {op, _, [left, _]} = ast, acc when op in @binding_ops ->
-        bound = do_extract_vars(left)
-        {ast, collect_bound(acc, bound)}
-
-      {:^, _, [{pinned, _, _}]} = ast, acc when is_atom(pinned) ->
-        {ast, delete_unbound(acc, pinned)}
-
-      ast, vars ->
-        {ast, vars}
-    end
-
-    post = fn
-      {op, _, _} = ast, acc
-      when op in @scope_ops
-      when op in @scope_and_binding_ops ->
-        {ast, pop_scope(acc)}
-
-      {var, _meta, context} = ast, acc
-      when is_atom(var) and is_atom(context) ->
-        if defined?(var, acc) do
-          {ast, acc}
+      MapSet.to_list(vars)
+    rescue
+      err in CompileError ->
+        with %CompileError{description: err_msg} <- err,
+             {:ok, var} <- unbound_var_from_err_msg(err_msg),
+             false <- MapSet.member?(vars, var) do
+          extract_vars(ast, env, MapSet.put(vars, var))
         else
-          {ast, collect_var(acc, var)}
+          _ -> reraise(err, __STACKTRACE__)
         end
-
-      ast, vars ->
-        {ast, vars}
-    end
-
-    {^ast, {_, collection}} = Macro.traverse(ast, initial_vars, pre, post)
-    collection
-  end
-
-  defp push_scope({scopes, collection}),
-    do: {[MapSet.new([]) | scopes], collection}
-
-  defp pop_scope({scopes, collection}),
-    do: {tl(scopes), collection}
-
-  defp collect_var_if_unbind({scopes, collection}, var) do
-    if Enum.all?(scopes, &(var not in &1)) do
-      {scopes, MapSet.put(collection, var)}
-    else
-      {scopes, collection}
     end
   end
 
-  defp collect_var({scopes, collection}, unbind_var),
-    do: {scopes, MapSet.put(collection, unbind_var)}
+  defp unbound_var_from_err_msg(err_msg) do
+    reg = ~r/undefined (function|variable) \^?(?<var>\w+)/
 
-  defp delete_unbound({[scope | tail], collection}, var),
-    do: {[MapSet.delete(scope, var) | tail], collection}
+    case Regex.named_captures(reg, err_msg) do
+      %{"var" => name} ->
+        {:ok, String.to_atom(name)}
 
-  defp collect_bound({[scope | tail], collection}, bounds),
-    do: {[MapSet.union(scope, bounds) | tail], collection}
-
-  defp defined?(var, {scopes, _}),
-    do: Enum.any?(scopes, &(var in &1))
+      _ ->
+        :error
+    end
+  end
 
   defp set_hygiene(ast, hygiene_context) do
     Macro.postwalk(ast, fn
@@ -187,15 +129,5 @@ defmodule Formular.Compiler do
       other ->
         other
     end)
-  end
-
-  defp def_used_variables(raw_ast) do
-    vars = extract_vars(raw_ast)
-
-    quote do
-      def used_variables do
-        [unquote_splicing(vars)]
-      end
-    end
   end
 end

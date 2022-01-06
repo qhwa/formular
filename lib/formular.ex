@@ -444,10 +444,12 @@ defmodule Formular do
   [:a, :b, :f]
   ```
   """
-  @spec used_vars(code()) :: [atom()]
-  def used_vars(code) when is_binary(code),
-    do: code |> Code.string_to_quoted!() |> used_vars()
+  @spec used_vars(code(), Macro.Env.t()) :: [atom()]
+  def used_vars(code, env \\ %Macro.Env{})
 
-  def used_vars(code),
-    do: Formular.Compiler.extract_vars(code)
+  def used_vars(code, env) when is_binary(code),
+    do: code |> Code.string_to_quoted!() |> used_vars(env)
+
+  def used_vars(code, env),
+    do: Formular.Compiler.extract_vars(code, env)
 end
