@@ -18,5 +18,10 @@ defmodule Formular.CompilerTest do
       {:module, _} = Formular.compile_to_module!("3.14", :literal_number)
       assert Formular.eval({:module, :literal_number}, []) == {:ok, 3.14}
     end
+
+    test "it supports binaries" do
+      {:module, _} = Formular.compile_to_module!(~s("ABC"), :literal_binary)
+      assert Formular.eval({:module, :literal_binary}, []) == {:ok, "ABC"}
+    end
   end
 end
