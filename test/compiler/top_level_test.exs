@@ -70,7 +70,7 @@ defmodule Formular.Compiler.TopLevelTest do
           %{y: ^y} = %{y: 3}
         end
 
-      assert extract_vars(ast) == [:x, :y]
+      assert extract_vars(ast) |> Enum.sort() == [:x, :y]
     end
   end
 end

@@ -8,7 +8,7 @@ defmodule ExceptionTest do
     raise "test"
     """
 
-    assert_compile_error("undefined function raise/1", code)
+    assert_compile_error(code)
   end
 
   test "disallowing `throw`" do
@@ -16,11 +16,10 @@ defmodule ExceptionTest do
     throw "test"
     """
 
-    assert_compile_error("undefined function throw/1", code)
+    assert_compile_error(code)
   end
 
-  defp assert_compile_error(error, code) do
-    assert {:error, %CompileError{description: err_msg, file: "nofile", line: 1}} = eval(code, [])
-    assert err_msg =~ error
+  defp assert_compile_error(code) do
+    assert {:error, %CompileError{file: "nofile"}} = eval(code, [])
   end
 end

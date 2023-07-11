@@ -145,6 +145,13 @@ defmodule Formular do
   {:error, :no_calling_module_function}
   ```
 
+  unless you explicitly allow it via `allow_modules` option, as shown below:
+
+  ```elixir
+  iex> Formular.eval("Map.new([])", [], allow_modules: [Map])
+  {:ok, %{}}
+  ```
+
   ## Evaluating AST instead of plain string code
 
   You may want to use AST instead of string for performance consideration. In this case, an AST can be passed to `eval/3`:
@@ -204,11 +211,11 @@ defmodule Formular do
 
   @type code :: binary() | Macro.t() | {:module, module()}
   @type option ::
-          {:context, context()}
+          {:context, module()}
+          | {:allow_modules, [module()]}
           | {:max_heap_size, non_neg_integer() | :infinity}
           | {:timeout, non_neg_integer() | :infinity}
 
-  @type context :: module()
   @type options :: [option()]
   @type eval_result :: {:ok, term()} | {:error, term()}
 
@@ -220,7 +227,8 @@ defmodule Formular do
   - `code` : code to eval. Could be a binary, or parsed AST.
   - `binding` : the variable binding to support the evaluation
   - `options` : current these options are supported:
-    - `context` : The module to import before evaluation.
+    - `context` : The modules to import before evaluation.
+    - `allow_modules` : The modules allowed to use in the code.
     - `timeout` : A timer used to terminate the evaluation after x milliseconds. `#{@default_timeout}` milliseconds by default.
     - `max_heap_size` : A limit on heap memory usage. If set to zero, the max heap size limit is disabled. `#{@default_max_heap_size}` words by default.
 
@@ -284,7 +292,7 @@ defmodule Formular do
     do: eval_ast(ast, binding, opts)
 
   defp eval_ast(ast, binding, opts) do
-    with :ok <- valid?(ast) do
+    with :ok <- valid?(ast, opts) do
       spawn_and_exec(
         fn -> do_eval(ast, binding, opts[:context]) end,
         opts
@@ -374,9 +382,9 @@ defmodule Formular do
       {Elixir.Kernel, @kernel_macros}
     ]
 
-  defp valid?(ast) do
+  defp valid?(ast, opts) do
     # credo:disable-for-next-line
-    case check_rules(ast) do
+    case check_rules(ast, opts) do
       false ->
         :ok
 
@@ -385,50 +393,78 @@ defmodule Formular do
     end
   end
 
-  defp check_rules({:., _pos, [Access, :get]}),
+  defp check_rules({:., _pos, [Access, :get]}, _),
     do: false
 
-  defp check_rules({:., _pos, [_callee, func]}) when is_atom(func),
-    do: :no_calling_module_function
+  defp check_rules({:., _pos, [{:__aliases__, _, [mod]}, func]}, opts) when is_atom(func) do
+    allow_modules = Keyword.get(opts, :allow_modules, [])
 
-  defp check_rules({:import, _pos, [_ | _]}),
-    do: :no_import_or_require
+    if Enum.member?(allow_modules, expand_alias(mod)) do
+      false
+    else
+      :no_calling_module_function
+    end
+  end
 
-  defp check_rules({:require, _pos, [_]}),
-    do: :no_import_or_require
+  defp check_rules({:., _pos, [_mod, func]}, _opts) when is_atom(func) do
+    :no_calling_module_function
+  end
 
-  defp check_rules({op, _pos, args}),
-    do: check_rules(op) || check_rules(args)
+  defp check_rules({import_or_require, _pos, [{:__aliases__, _, [mod]} | _]}, opts)
+       when import_or_require in [:import, :require] do
+    allow_modules = Keyword.get(opts, :allow_modules, [])
 
-  defp check_rules([]),
+    if Enum.member?(allow_modules, expand_alias(mod)) do
+      false
+    else
+      :no_import_or_require
+    end
+  end
+
+  defp check_rules({import_or_require, _pos, [_ | _]}, _opts)
+       when import_or_require in [:import, :require] do
+    :no_import_or_require
+  end
+
+  defp check_rules({op, _pos, args}, opts),
+    do: check_rules(op, opts) || check_rules(args, opts)
+
+  defp check_rules([], _),
     do: false
 
-  defp check_rules([ast | rest]),
-    do: check_rules(ast) || check_rules(rest)
+  defp check_rules([ast | rest], opts),
+    do: check_rules(ast, opts) || check_rules(rest, opts)
 
-  defp check_rules(_),
+  defp check_rules(_, _opts),
     do: false
+
+  defp expand_alias(mod) when is_atom(mod),
+    do: Module.concat(:"Elixir", mod)
 
   @doc """
   Compile the code into an Elixir module function.
   """
-  @spec compile_to_module!(code(), module(), context()) :: {:module, module()}
-  def compile_to_module!(code, mod, context \\ nil)
+  @spec compile_to_module!(code(), module(), module() | options()) :: {:module, module()}
+  def compile_to_module!(code, mod, opts \\ [])
 
-  def compile_to_module!(code, mod, context) when is_binary(code),
+  def compile_to_module!(code, mode, context) when is_atom(context),
+    do: compile_to_module!(code, mode, context: context)
+
+  def compile_to_module!(code, mod, opts) when is_binary(code) and is_list(opts),
     do:
       code
       |> Code.string_to_quoted!()
-      |> compile_ast_to_module!(mod, context)
+      |> compile_ast_to_module!(mod, opts)
 
-  def compile_to_module!(ast, mod, context),
-    do: compile_ast_to_module!(ast, mod, context)
+  def compile_to_module!(ast, mod, opts),
+    do: compile_ast_to_module!(ast, mod, opts)
 
-  defp compile_ast_to_module!(ast, mod, context) do
-    with :ok <- valid?(ast) do
+  defp compile_ast_to_module!(ast, mod, opts) do
+    with :ok <- valid?(ast, opts) do
       env = %Macro.Env{
-        functions: imported_functions(context),
-        macros: imported_macros(context),
+        context_modules: opts[:allow_modules],
+        functions: imported_functions(opts[:context]),
+        macros: imported_macros(opts[:context]),
         requires: [Elixir.Kernel]
       }
 
@@ -446,7 +482,7 @@ defmodule Formular do
 
   ```elixir
   iex> code = "f.(a + b)"
-  ...> Formular.used_vars(code)
+  ...> Formular.used_vars(code) |> Enum.sort()
   [:a, :b, :f]
   ```
   """
