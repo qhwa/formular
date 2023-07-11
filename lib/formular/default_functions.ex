@@ -57,6 +57,7 @@ defmodule Formular.DefaultFunctions do
     is_tuple: 1,
     length: 1,
     map_size: 1,
+    match?: 2,
     max: 2,
     min: 2,
     not: 1,

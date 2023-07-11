@@ -18,7 +18,7 @@ defmodule Formular.Compiler.ClauseTest do
           end
         end
 
-      assert extract_vars(ast) == [:b, :x]
+      assert extract_vars(ast) |> Enum.sort() == [:b, :x]
     end
   end
 

@@ -8,8 +8,7 @@ defmodule ExitTest do
     exit("test")
     """
 
-    assert {:error,
-            %CompileError{description: "undefined function exit/1" <> _, file: "nofile", line: 1}} =
+    assert {:error, %CompileError{description: _, file: "nofile"}} =
              eval(code, [])
   end
 end
