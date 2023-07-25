@@ -139,7 +139,7 @@ defmodule Formular.Compiler do
 
       {var, _meta, context} = ast, acc
       when is_atom(var) and is_atom(context) ->
-        if defined?(var, acc) do
+        if ignore?(var) or defined?(var, acc) do
           {ast, acc}
         else
           {ast, collect_var(acc, var)}
@@ -160,12 +160,15 @@ defmodule Formular.Compiler do
     do: {tl(scopes), collection}
 
   defp collect_var_if_unbind({scopes, collection}, var) do
-    if Enum.all?(scopes, &(var not in &1)) do
+    if Enum.all?(scopes, &(not ignore?(var) and var not in &1)) do
       {scopes, MapSet.put(collection, var)}
     else
       {scopes, collection}
     end
   end
+
+  defp ignore?(var),
+    do: to_string(var) |> String.starts_with?("_")
 
   defp collect_var({scopes, collection}, unbind_var),
     do: {scopes, MapSet.put(collection, unbind_var)}
