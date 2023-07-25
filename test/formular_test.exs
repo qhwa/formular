@@ -64,4 +64,13 @@ defmodule FormularTest do
 
     assert eval(f, []) == {:error, :no_calling_module_function}
   end
+
+  describe "used_vars/1" do
+    test "returns the used variables" do
+      f =
+        "for ret when not is_nil(ret) <- [\n  if(match?({_type, _name, _}, plan),\n  do: 1\n)], do: ret\n"
+
+      assert [:plan] == Formular.used_vars(f)
+    end
+  end
 end
