@@ -353,9 +353,11 @@ defmodule Formular do
       ast
       |> Code.eval_quoted(
         binding,
-        functions: imported_functions(context),
-        macros: imported_macros(context),
-        requires: [Elixir.Kernel]
+        %Macro.Env{
+          functions: imported_functions(context),
+          macros: imported_macros(context),
+          requires: [Elixir.Kernel]
+        }
       )
 
     {:ok, ret}
