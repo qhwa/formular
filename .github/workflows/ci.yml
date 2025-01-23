@@ -12,16 +12,16 @@ jobs:
     strategy:
       matrix:
         elixir:
-          - '1.13.1'
-          - '1.14.2'
+          - '1.16.3'
+          - '1.17.3'
+          - '1.18.2'
         otp:
-          - '24.0'
-          - '25.2'
+          - '26.2'
+          - '27.2'
+
         exclude:
-          - elixir: '1.12.2'
-            otp: '21.3'
-          - elixir: '1.13.1'
-            otp: '21.3'
+          - elixir: '1.16.3'
+            otp: '27.2'
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -31,12 +31,12 @@ jobs:
           elixir-version: ${{ matrix.elixir }}
           otp-version: ${{ matrix.otp }}
       - name: Restore deps
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: deps
           key: deps-${{ runner.os }}-${{ matrix.elixir }}-${{ matrix.otp }}-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
       - name: Restore _build
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: _build
           key: _build-${{ runner.os }}-${{ matrix.elixir }}-${{ matrix.otp }}-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
