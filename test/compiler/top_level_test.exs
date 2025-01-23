@@ -20,7 +20,7 @@ defmodule Formular.Compiler.TopLevelTest do
           b
         end
 
-      assert extract_vars(ast) == [:a, :b]
+      assert Enum.sort(extract_vars(ast)) == [:a, :b]
     end
 
     test "it works with assignments" do
